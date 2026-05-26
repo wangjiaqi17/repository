@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Monitoring Dashboard</title>
+    
+    <!-- ArcGIS API for JavaScript -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.28/"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            background: white;
+        }
+
+        /* HEADER */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-right: 1px solid #e0e6ed;
+            margin-top: 56px;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #f8fafb;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        .sidebar-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #0f766e;
+        }
+
+        .filter-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            color: #555;
+        }
+
+        .filter-btn:hover {
+            border-color: #0d9488;
+            color: #0d9488;
+        }
+
+        .filter-btn.active {
+            background: #0d9488;
+            color: white;
+            border-color: #0d9488;
+        }
+
+        /* STATISTICS */
+        .stats-container {
+            padding: 16px;
+            background: #f0fdf4;
+            border-bottom: 1px solid #e0e6ed;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #0d9488;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f766e;
+        }
+
+        /* SEARCH */
+        .search-box {
+            padding: 16px;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #0d9488;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        }
+
+        /* FEATURES LIST */
+        .features-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .feature-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-left: 4px solid #0d9488;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e0e6ed;
+        }
+
+        .feature-item:hover {
+            background: #f0fdf4;
+            transform: translateX(4px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .feature-item.selected {
+            background: #ccfbf1;
+            border-left-color: #0f766e;
+        }
+
+        .feature-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #0f766e;
+            margin-bottom: 4px;
+        }
+
+        .feature-details {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .feature-value {
+            font-weight: 700;
+            color: #0d9488;
+            margin-top: 4px;
+        }
+
+        /* MAP CONTAINER */
+        .map-container {
+            flex: 1;
+            position: relative;
+            margin-top: 56px;
+            background: white;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* LOADING STATE */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .loading.error {
+            background: #fee;
+            color: #c00;
+        }
+
+        .loading.error h3 {
+            margin: 0 0 10px 0;
+            color: #c00;
+        }
+
+        .loading.error code {
+            display: block;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e0e6ed;
+            border-top-color: #0d9488;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* SCROLLBAR STYLING */
+        .features-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .features-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .features-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .features-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: 40vh;
+                border-right: none;
+                border-bottom: 1px solid #e0e6ed;
+            }
+
+            .map-container {
+                margin-top: 0;
+            }
+
+            .filter-buttons {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Environmental Monitoring</h1>
+    </div>
+
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Filter by Type</h2>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All Stations</button>
+                    <button class="filter-btn" data-filter="air">Air Quality</button>
+                    <button class="filter-btn" data-filter="water">Water Quality</button>
+                    <button class="filter-btn" data-filter="soil">Soil</button>
+                </div>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-label">Total Stations</div>
+                    <div class="stat-value" id="total-stations">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Visible</div>
+                    <div class="stat-value" id="visible-count">0</div>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search by name or location...">
+            </div>
+
+            <div class="features-list" id="features-list">
+                <div class="empty-state">
+                    <p>Loading monitoring stations...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAP -->
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Initializing map...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===================================
+        // GLOBAL VARIABLES
+        // ===================================
+        let allFeatures = [];
+        let filteredFeatures = [];
+        let selectedFeature = null;
+        let currentFilter = "all";
+        let view = null;
+
+        // Configure ArcGIS API
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/FeatureLayer",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/renderers/UniqueValueRenderer",
+            "esri/widgets/Home",
+            "esri/widgets/Zoom",
+            "esri/rest/query"
+        ], function(Map, MapView, FeatureLayer, SimpleMarkerSymbol, UniqueValueRenderer, Home, Zoom, query) {
+
+            // Feature Service URL - IMPORTANT: Add /0 at the end to specify the layer
+            const featureServiceUrl = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Air_Quality_PM25_Latest_Results/FeatureServer/0";
+
+            // Initialize map
+            const map = new Map({
+                basemap: "dark-gray"
+            });
+
+            view = new MapView({
+                container: "map",
+                map: map,
+                center: [-95, 37],
+                zoom: 4
+            });
+
+            // Add Home and Zoom widgets
+            view.ui.add(new Home({ view }), "top-left");
+            view.ui.add(new Zoom({ view }), "top-left");
+
+            // ===================================
+            // DATA RENDERING FUNCTIONS
+            // ===================================
+
+            function updateSidebar() {
+                const listContainer = document.getElementById("features-list");
+                
+                if (filteredFeatures.length === 0) {
+                    listContainer.innerHTML = '<div class="empty-state"><p>No stations match your filter.</p></div>';
+                    return;
+                }
+
+                listContainer.innerHTML = filteredFeatures.map(feature => `
+                    <div class="feature-item" data-id="${feature.id}" onclick="selectFeature(${feature.id})">
+                        <div class="feature-name">${feature.name}</div>
+                        <div class="feature-details">
+                            📍 ${feature.location}<br>
+                            Type: <strong>${feature.type}</strong>
+                        </div>
+                        <div class="feature-value">Value: ${feature.value.toFixed(2)}</div>
+                    </div>
+                `).join("");
+
+                document.getElementById("total-stations").textContent = allFeatures.length;
+                document.getElementById("visible-count").textContent = filteredFeatures.length;
+            }
+
+            function applyFilters() {
+                const searchTerm = document.getElementById("search-input").value.toLowerCase();
+                
+                filteredFeatures = allFeatures.filter(feature => {
+                    const matchesType = currentFilter === "all" || feature.type === currentFilter;
+                    const matchesSearch = searchTerm === "" || 
+                        feature.name.toLowerCase().includes(searchTerm) ||
+                        feature.location.toLowerCase().includes(searchTerm);
+                    
+                    return matchesType && matchesSearch;
+                });
+
+                updateSidebar();
+                updateMapMarkers();
+            }
+
+            function updateMapMarkers() {
+                view.graphics.removeAll();
+
+                const symbolConfig = {
+                    "air": { color: [255, 140, 0], size: 10 },
+                    "water": { color: [30, 144, 255], size: 10 },
+                    "soil": { color: [139, 69, 19], size: 10 },
+                };
+
+                filteredFeatures.forEach(feature => {
+                    const config = symbolConfig[feature.type] || symbolConfig["air"];
+                    
+                    const graphic = {
+                        geometry: {
+                            type: "point",
+                            longitude: feature.lon,
+                            latitude: feature.lat
+                        },
+                        symbol: {
+                            type: "simple-marker",
+                            color: config.color,
+                            size: config.size,
+                            outline: {
+                                color: "white",
+                                width: 2
+                            }
+                        },
+                        attributes: feature,
+                        popupTemplate: {
+                            title: feature.name,
+                            content: `
+                                <strong>Type:</strong> ${feature.type}<br>
+                                <strong>Location:</strong> ${feature.location}<br>
+                                <strong>Value:</strong> ${feature.value.toFixed(2)}
+                            `
+                        }
+                    };
+
+                    view.graphics.add(graphic);
+                });
+            }
+
+            window.selectFeature = function(id) {
+                selectedFeature = allFeatures.find(f => f.id === id);
+                
+                document.querySelectorAll(".feature-item").forEach(item => {
+                    item.classList.remove("selected");
+                });
+                document.querySelector(`[data-id="${id}"]`)?.classList.add("selected");
+
+                if (selectedFeature) {
+                    view.goTo({
+                        target: [selectedFeature.lon, selectedFeature.lat],
+                        zoom: 10
+                    });
+                }
+            };
+
+            // ===================================
+            // LOAD DATA FROM AGOL FEATURE SERVICE
+            // ===================================
+
+            function loadAGOLData() {
+                const loading = document.getElementById("loading");
+                
+                query.executeQueryJSON(featureServiceUrl, {
+                    where: "1=1",
+                    outFields: ["*"],
+                    returnGeometry: true,
+                    f: "json"
+                }).then(function(results) {
+                    console.log("Data loaded successfully:", results.features.length, "features");
+                    console.log("First feature:", results.features[0]);
+
+                    if (results.features.length === 0) {
+                        loading.innerHTML = `
+                            <h3>⚠️ No Data Found</h3>
+                            <p>The Feature Service returned 0 results.</p>
+                        `;
+                        loading.classList.add("error");
+                        return;
+                    }
+
+                    // Transform AGOL data to our format
+                    allFeatures = results.features.map(feature => {
+                        const attrs = feature.attributes;
+                        return {
+                            id: attrs.OBJECTID || attrs.FID || Math.random(),
+                            name: attrs.StationName || attrs.Name || "Unknown Station",
+                            type: attrs.Type || "air",
+                            value: parseFloat(attrs.Value || attrs.PM25 || 0),
+                            location: attrs.Location || attrs.County || "Unknown",
+                            lat: feature.geometry.y,
+                            lon: feature.geometry.x
+                        };
+                    });
+
+                    filteredFeatures = [...allFeatures];
+                    loading.style.display = "none";
+                    applyFilters();
+
+                }).catch(function(error) {
+                    console.error("Error loading AGOL data:", error);
+                    loading.innerHTML = `
+                        <h3>⚠️ Error Loading Data</h3>
+                        <p>Could not load from Feature Service</p>
+                        <code>${error.message || error}</code>
+                        <p style="margin-top: 10px; font-size: 12px;">
+                            Check that:<br>
+                            • Feature Service URL is correct<br>
+                            • Service is publicly shared<br>
+                            • Check browser console (F12)
+                        </p>
+                    `;
+                    loading.classList.add("error");
+                });
+            }
+
+            // ===================================
+            // EVENT LISTENERS
+            // ===================================
+
+            document.querySelectorAll(".filter-btn").forEach(btn => {
+                btn.addEventListener("click", function() {
+                    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+                    this.classList.add("active");
+                    currentFilter = this.dataset.filter;
+                    applyFilters();
+                });
+            });
+
+            document.getElementById("search-input").addEventListener("input", applyFilters);
+
+            // ===================================
+            // INITIALIZATION
+            // ===================================
+
+            view.when(() => {
+                loadAGOLData();
+            }).catch(function(error) {
+                console.error("Map initialization error:", error);
+                const loading = document.getElementById("loading");
+                loading.innerHTML = `
+                    <h3>❌ Map Failed to Load</h3>
+                    <p>Error: ${error.message}</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Check console (F12) for details</p>
+                `;
+                loading.classList.add("error");
+            });
+        });
+    </script>
+</body>
+</html>
