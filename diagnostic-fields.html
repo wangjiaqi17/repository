@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic - Field Names</title>
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #0f766e; }
+        pre { background: #f0f0f0; padding: 15px; border-radius: 4px; overflow-x: auto; border-left: 4px solid #0d9488; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #0d9488; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 AGOL Feature Service Field Diagnostic</h1>
+        <p>This page will show you the EXACT field names in your AGOL data.</p>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        require(["esri/rest/query"], function(query) {
+            const featureServiceUrl = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Air_Quality_PM25_Latest_Results/FeatureServer/0";
+            
+            const output = document.getElementById("output");
+            output.innerHTML = '<p>Loading data...</p>';
+
+            query.executeQueryJSON(featureServiceUrl, {
+                where: "1=1",
+                outFields: ["*"],
+                returnGeometry: true,
+                f: "json"
+            }).then(function(results) {
+                console.log("Results:", results);
+                
+                if (results.features.length === 0) {
+                    output.innerHTML = '<p class="error">❌ No features returned from service</p>';
+                    return;
+                }
+
+                let html = `<p class="success">✅ Loaded ${results.features.length} features</p>`;
+                
+                // Get field names
+                const firstAttrs = results.features[0].attributes;
+                const fieldNames = Object.keys(firstAttrs);
+                
+                html += `
+                    <h2>Field Names Found (${fieldNames.length} fields):</h2>
+                    <pre>${fieldNames.join('\n')}</pre>
+                `;
+
+                // Show first feature
+                html += `
+                    <h2>First Feature Full Data:</h2>
+                    <pre>${JSON.stringify(results.features[0], null, 2)}</pre>
+                `;
+
+                // Show first 10 records in table
+                html += `<h2>First 10 Records Preview:</h2><table><tr>`;
+                fieldNames.slice(0, 10).forEach(field => {
+                    html += `<th>${field}</th>`;
+                });
+                html += `</tr>`;
+                
+                results.features.slice(0, 10).forEach(feature => {
+                    html += `<tr>`;
+                    fieldNames.slice(0, 10).forEach(field => {
+                        const value = feature.attributes[field];
+                        html += `<td>${value}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+                html += `</table>`;
+
+                output.innerHTML = html;
+                
+                // Also log to console
+                console.log("=== FIELD NAMES ===");
+                console.log(fieldNames);
+                console.log("\n=== FIRST FEATURE ===");
+                console.log(results.features[0]);
+                
+            }).catch(function(error) {
+                console.error("Error:", error);
+                output.innerHTML = `<p class="error">❌ Error: ${error.message}</p><pre>${JSON.stringify(error, null, 2)}</pre>`;
+            });
+        });
+    </script>
+</body>
+</html>
