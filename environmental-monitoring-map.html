@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Environmental Monitoring Dashboard</title>
     
-    <!-- ArcGIS API for JavaScript -->
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
     <script src="https://js.arcgis.com/4.28/"></script>
     
@@ -28,7 +27,6 @@
             background: white;
         }
 
-        /* HEADER */
         .header {
             position: fixed;
             top: 0;
@@ -47,7 +45,6 @@
             letter-spacing: -0.5px;
         }
 
-        /* SIDEBAR */
         .sidebar {
             width: 380px;
             display: flex;
@@ -100,7 +97,6 @@
             border-color: #0d9488;
         }
 
-        /* STATISTICS */
         .stats-container {
             padding: 16px;
             background: #f0fdf4;
@@ -132,7 +128,6 @@
             color: #0f766e;
         }
 
-        /* SEARCH */
         .search-box {
             padding: 16px;
             border-bottom: 1px solid #e0e6ed;
@@ -153,7 +148,6 @@
             box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
         }
 
-        /* FEATURES LIST */
         .features-list {
             flex: 1;
             overflow-y: auto;
@@ -201,7 +195,6 @@
             margin-top: 4px;
         }
 
-        /* MAP CONTAINER */
         .map-container {
             flex: 1;
             position: relative;
@@ -214,7 +207,6 @@
             height: 100%;
         }
 
-        /* LOADING STATE */
         .loading {
             position: absolute;
             top: 50%;
@@ -236,6 +228,12 @@
         .loading.error h3 {
             margin: 0 0 10px 0;
             color: #c00;
+            font-size: 16px;
+        }
+
+        .loading.error p {
+            margin: 8px 0;
+            font-size: 13px;
         }
 
         .loading.error code {
@@ -243,9 +241,10 @@
             background: #f5f5f5;
             padding: 10px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             margin-top: 10px;
             text-align: left;
+            word-break: break-all;
         }
 
         .spinner {
@@ -262,7 +261,6 @@
             to { transform: rotate(360deg); }
         }
 
-        /* EMPTY STATE */
         .empty-state {
             padding: 40px 20px;
             text-align: center;
@@ -274,7 +272,6 @@
             line-height: 1.6;
         }
 
-        /* SCROLLBAR STYLING */
         .features-list::-webkit-scrollbar {
             width: 6px;
         }
@@ -292,23 +289,19 @@
             background: #94a3b8;
         }
 
-        /* RESPONSIVE */
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
             }
-
             .sidebar {
                 width: 100%;
                 max-height: 40vh;
                 border-right: none;
                 border-bottom: 1px solid #e0e6ed;
             }
-
             .map-container {
                 margin-top: 0;
             }
-
             .filter-buttons {
                 grid-template-columns: 1fr 1fr 1fr;
             }
@@ -321,15 +314,14 @@
     </div>
 
     <div class="container">
-        <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>Filter by Type</h2>
+                <h2>Filter by Parameter</h2>
                 <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">All Stations</button>
-                    <button class="filter-btn" data-filter="air">Air Quality</button>
-                    <button class="filter-btn" data-filter="water">Water Quality</button>
-                    <button class="filter-btn" data-filter="soil">Soil</button>
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="pm25">PM2.5</button>
+                    <button class="filter-btn" data-filter="pm10">PM10</button>
+                    <button class="filter-btn" data-filter="no2">NO2</button>
                 </div>
             </div>
 
@@ -345,7 +337,7 @@
             </div>
 
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="Search by name or location...">
+                <input type="text" id="search-input" placeholder="Search by city or location...">
             </div>
 
             <div class="features-list" id="features-list">
@@ -355,7 +347,6 @@
             </div>
         </div>
 
-        <!-- MAP -->
         <div class="map-container">
             <div id="map"></div>
             <div class="loading" id="loading">
@@ -367,7 +358,7 @@
 
     <script>
         // ===================================
-        // GLOBAL VARIABLES
+        // GLOBAL VARIABLES - Declared First!
         // ===================================
         let allFeatures = [];
         let filteredFeatures = [];
@@ -375,22 +366,16 @@
         let currentFilter = "all";
         let view = null;
 
-        // Configure ArcGIS API
         require([
             "esri/Map",
             "esri/views/MapView",
-            "esri/layers/FeatureLayer",
-            "esri/symbols/SimpleMarkerSymbol",
-            "esri/renderers/UniqueValueRenderer",
             "esri/widgets/Home",
             "esri/widgets/Zoom",
             "esri/rest/query"
-        ], function(Map, MapView, FeatureLayer, SimpleMarkerSymbol, UniqueValueRenderer, Home, Zoom, query) {
+        ], function(Map, MapView, Home, Zoom, query) {
 
-            // Feature Service URL - IMPORTANT: Add /0 at the end to specify the layer
             const featureServiceUrl = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Air_Quality_PM25_Latest_Results/FeatureServer/0";
 
-            // Initialize map
             const map = new Map({
                 basemap: "dark-gray"
             });
@@ -402,12 +387,11 @@
                 zoom: 4
             });
 
-            // Add Home and Zoom widgets
             view.ui.add(new Home({ view }), "top-left");
             view.ui.add(new Zoom({ view }), "top-left");
 
             // ===================================
-            // DATA RENDERING FUNCTIONS
+            // FUNCTIONS
             // ===================================
 
             function updateSidebar() {
@@ -415,19 +399,18 @@
                 
                 if (filteredFeatures.length === 0) {
                     listContainer.innerHTML = '<div class="empty-state"><p>No stations match your filter.</p></div>';
-                    return;
-                }
-
-                listContainer.innerHTML = filteredFeatures.map(feature => `
-                    <div class="feature-item" data-id="${feature.id}" onclick="selectFeature(${feature.id})">
-                        <div class="feature-name">${feature.name}</div>
-                        <div class="feature-details">
-                            📍 ${feature.location}<br>
-                            Type: <strong>${feature.type}</strong>
+                } else {
+                    listContainer.innerHTML = filteredFeatures.map(feature => `
+                        <div class="feature-item" data-id="${feature.id}" onclick="window.selectFeature(${feature.id})">
+                            <div class="feature-name">${feature.name}</div>
+                            <div class="feature-details">
+                                📍 ${feature.location}<br>
+                                Parameter: <strong>${feature.type}</strong>
+                            </div>
+                            <div class="feature-value">Value: ${feature.value.toFixed(2)} ${feature.unit}</div>
                         </div>
-                        <div class="feature-value">Value: ${feature.value.toFixed(2)}</div>
-                    </div>
-                `).join("");
+                    `).join("");
+                }
 
                 document.getElementById("total-stations").textContent = allFeatures.length;
                 document.getElementById("visible-count").textContent = filteredFeatures.length;
@@ -453,13 +436,14 @@
                 view.graphics.removeAll();
 
                 const symbolConfig = {
-                    "air": { color: [255, 140, 0], size: 10 },
-                    "water": { color: [30, 144, 255], size: 10 },
-                    "soil": { color: [139, 69, 19], size: 10 },
+                    "pm25": { color: [255, 140, 0], size: 10 },      // Orange
+                    "pm10": { color: [255, 100, 0], size: 10 },      // Dark Orange
+                    "no2": { color: [255, 50, 0], size: 10 },        // Red-Orange
+                    "o3": { color: [200, 100, 0], size: 10 }         // Brown
                 };
 
                 filteredFeatures.forEach(feature => {
-                    const config = symbolConfig[feature.type] || symbolConfig["air"];
+                    const config = symbolConfig[feature.type] || { color: [100, 100, 100], size: 10 };
                     
                     const graphic = {
                         geometry: {
@@ -480,9 +464,11 @@
                         popupTemplate: {
                             title: feature.name,
                             content: `
-                                <strong>Type:</strong> ${feature.type}<br>
                                 <strong>Location:</strong> ${feature.location}<br>
-                                <strong>Value:</strong> ${feature.value.toFixed(2)}
+                                <strong>Country:</strong> ${feature.country}<br>
+                                <strong>Parameter:</strong> ${feature.type.toUpperCase()}<br>
+                                <strong>Value:</strong> ${feature.value.toFixed(2)} ${feature.unit}<br>
+                                <strong>Last Updated:</strong> ${feature.lastUpdated}
                             `
                         }
                     };
@@ -507,10 +493,6 @@
                 }
             };
 
-            // ===================================
-            // LOAD DATA FROM AGOL FEATURE SERVICE
-            // ===================================
-
             function loadAGOLData() {
                 const loading = document.getElementById("loading");
                 
@@ -520,27 +502,33 @@
                     returnGeometry: true,
                     f: "json"
                 }).then(function(results) {
-                    console.log("Data loaded successfully:", results.features.length, "features");
-                    console.log("First feature:", results.features[0]);
+                    console.log("✅ Data loaded successfully:", results.features.length, "features");
+                    if (results.features.length > 0) {
+                        console.log("First feature:", results.features[0]);
+                    }
 
                     if (results.features.length === 0) {
-                        loading.innerHTML = `
-                            <h3>⚠️ No Data Found</h3>
-                            <p>The Feature Service returned 0 results.</p>
-                        `;
+                        loading.innerHTML = `<h3>⚠️ No Data Found</h3><p>The Feature Service returned 0 results.</p>`;
                         loading.classList.add("error");
                         return;
                     }
 
-                    // Transform AGOL data to our format
+                    // ===================================
+                    // TRANSFORM AGOL DATA WITH CORRECT FIELD NAMES
+                    // ===================================
                     allFeatures = results.features.map(feature => {
                         const attrs = feature.attributes;
+                        
+                        // Use the ACTUAL field names from AGOL
                         return {
-                            id: attrs.OBJECTID || attrs.FID || Math.random(),
-                            name: attrs.StationName || attrs.Name || "Unknown Station",
-                            type: attrs.Type || "air",
-                            value: parseFloat(attrs.Value || attrs.PM25 || 0),
-                            location: attrs.Location || attrs.County || "Unknown",
+                            id: attrs.OBJECTID,
+                            name: attrs.city || attrs.location || "Unknown",  // city field
+                            type: attrs.parameter || "pm25",                   // parameter field (pm25, pm10, no2, etc.)
+                            value: parseFloat(attrs.value || 0),               // value field
+                            unit: attrs.unit || "µg/m³",                       // unit field
+                            location: attrs.location || "Unknown",             // location field
+                            country: attrs.country_name || attrs.country || "Unknown",  // country_name field
+                            lastUpdated: attrs.lastUpdated || "Unknown",       // lastUpdated field
                             lat: feature.geometry.y,
                             lon: feature.geometry.x
                         };
@@ -551,18 +539,8 @@
                     applyFilters();
 
                 }).catch(function(error) {
-                    console.error("Error loading AGOL data:", error);
-                    loading.innerHTML = `
-                        <h3>⚠️ Error Loading Data</h3>
-                        <p>Could not load from Feature Service</p>
-                        <code>${error.message || error}</code>
-                        <p style="margin-top: 10px; font-size: 12px;">
-                            Check that:<br>
-                            • Feature Service URL is correct<br>
-                            • Service is publicly shared<br>
-                            • Check browser console (F12)
-                        </p>
-                    `;
+                    console.error("❌ Error loading AGOL data:", error);
+                    loading.innerHTML = `<h3>⚠️ Error Loading Data</h3><p>${error.message}</p>`;
                     loading.classList.add("error");
                 });
             }
@@ -570,7 +548,6 @@
             // ===================================
             // EVENT LISTENERS
             // ===================================
-
             document.querySelectorAll(".filter-btn").forEach(btn => {
                 btn.addEventListener("click", function() {
                     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
@@ -585,17 +562,13 @@
             // ===================================
             // INITIALIZATION
             // ===================================
-
             view.when(() => {
+                console.log("Map ready, loading data...");
                 loadAGOLData();
             }).catch(function(error) {
-                console.error("Map initialization error:", error);
+                console.error("❌ Map initialization error:", error);
                 const loading = document.getElementById("loading");
-                loading.innerHTML = `
-                    <h3>❌ Map Failed to Load</h3>
-                    <p>Error: ${error.message}</p>
-                    <p style="font-size: 12px; margin-top: 10px;">Check console (F12) for details</p>
-                `;
+                loading.innerHTML = `<h3>❌ Map Failed to Load</h3><p>${error.message}</p>`;
                 loading.classList.add("error");
             });
         });
